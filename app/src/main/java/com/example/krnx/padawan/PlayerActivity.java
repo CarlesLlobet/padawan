@@ -46,50 +46,71 @@ public class PlayerActivity extends BaseActivity {
         fab.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                Intent file = new Intent(Intent.ACTION_PICK, MediaStore.Audio.Media.EXTERNAL_CONTENT_URI);
-//                file.setType("file*//**//*");
-                startActivityForResult(file, REQUEST_CODE_EXTERNAL_STORAGE);
+                checkStoragePermissions();
             }
         });
     }
 
+    private void searchSong(){
+        Intent intent = new Intent(Intent.ACTION_PICK, android.provider.MediaStore.Audio.Media.EXTERNAL_CONTENT_URI);
+        startActivityForResult(intent, 0);
+    }
+
+    private void checkStoragePermissions() {
+        int hasStoragePermissions = checkSelfPermission(Manifest.permission.WRITE_EXTERNAL_STORAGE);
+        if (hasStoragePermissions != PackageManager.PERMISSION_GRANTED) {
+            requestPermissions(new String[] {Manifest.permission.WRITE_EXTERNAL_STORAGE},
+                    REQUEST_CODE_EXTERNAL_STORAGE);
+            return;
+        }
+        searchSong();
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+        switch (requestCode) {
+            case REQUEST_CODE_EXTERNAL_STORAGE:
+                if (grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                    // Permission Granted
+                    searchSong();
+                } else {
+                    // Permission Denied
+                    Toast.makeText(PlayerActivity.this, "WRITE_STORAGE Denied", Toast.LENGTH_SHORT)
+                            .show();
+                }
+                break;
+            default:
+                super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        }
+    }
+
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
-        // Si la petición se hizo correctamente y requestCode es REQUEST_CODE_EXTERNAL_STORAGE
-        if (resultCode == Activity.RESULT_OK && requestCode == REQUEST_CODE_EXTERNAL_STORAGE) {
-            Uri uri = data.getData();
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == 0) {
+            Uri uriSound = data.getData();
+            String path = uriSound.getPath();
             mediaPlayer = new MediaPlayer();
             try {
-                Log.v("Player", "Falla el setDataSource amb URI: " + uri.toString());
-                mediaPlayer.setDataSource(getApplicationContext(), uri);//Falla
-//                mediaPlayer.prepare();
-//                mediaPlayer.reset();
+                mediaPlayer.reset();
+                mediaPlayer.setDataSource(this, uriSound);
             } catch (IOException e) {
-                Toast.makeText(getApplicationContext(), "Ha fallat IO: " + e.getMessage(), Toast.LENGTH_LONG).show();
-                Log.v("Player", "Ha fallat IO: " + e.getMessage());
                 e.printStackTrace();
             }
             mediaPlayer.setOnPreparedListener(new MediaPlayer.OnPreparedListener() {
+                @Override
                 public void onPrepared(MediaPlayer mp) {
-                    Toast.makeText(getApplicationContext(), "Comença!", Toast.LENGTH_SHORT).show();
                     mediaPlayer.start();
                 }
             });
             mediaPlayer.setOnCompletionListener(new MediaPlayer.OnCompletionListener() {
+                @Override
                 public void onCompletion(MediaPlayer mp) {
-                    Toast.makeText(getApplicationContext(), "This is the end!", Toast.LENGTH_SHORT).show();
-                    //finish();
+                    mediaPlayer.seekTo(0);
                 }
             });
-
-//            mediaPlayer.start();
-//            mediaPlayer.pause();
-//            mediaPlayer.stop();
-//            mediaPlayer.release();
-
-//            mediaPlayer.prepareAsync();
-        } else
-            Toast.makeText(this, "File Failed", Toast.LENGTH_LONG).show();
+            mediaPlayer.prepareAsync();
+        }
     }
 
     private void releaseMediaPlayer() {
